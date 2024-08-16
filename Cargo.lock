@@ -309,8 +309,10 @@ dependencies = [
  "env_logger",
  "glium 0.35.0",
  "glutin 0.27.0",
+ "id3",
  "rfd",
  "rodio",
+ "rusttype",
 ]
 
 [[package]]
@@ -2416,6 +2418,17 @@ dependencies = [
  "block2 0.3.0",
  "dispatch",
  "objc2 0.4.1",
+]
+
+[[package]]
+name = "id3"
+version = "1.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "55f4e785f2c700217ee82a1c727c720449421742abd5fcb2f1df04e1244760e9"
+dependencies = [
+ "bitflags 2.6.0",
+ "byteorder",
+ "flate2",
 ]
 
 [[package]]
