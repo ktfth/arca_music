@@ -2,7 +2,6 @@
 #![allow(rustdoc::missing_crate_level_docs)] // it's an example
 
 use eframe::egui::{self, Slider};
-use egui::{Align, Direction, Layout};
 use id3::Tag;
 use id3::TagLike;
 use rfd::FileDialog;
@@ -113,15 +112,11 @@ impl MediaPlayerApp {
     }
 
     fn update_directory(&mut self) {
-        self.songs = Self::read_songs_from_directory(&self.current_directory);
-        self.selected_song = None;
-    }
-
-    fn open_directory_dialog(&mut self) {
         if let Some(directory) = FileDialog::new().pick_folder() {
             if let Some(dir_str) = directory.to_str() {
                 self.current_directory = dir_str.to_owned();
-                self.update_directory();
+                self.songs = Self::read_songs_from_directory(&self.current_directory); // Carrega as músicas do novo diretório
+                self.selected_song = None; // Reseta a seleção
             }
         }
     }
@@ -135,10 +130,6 @@ impl MediaPlayerApp {
         if let Some(_sink) = &self.sink {
             let elapsed_time = position.min(self.total_time);
             self.current_time = elapsed_time;
-
-            // Neste ponto, ajustamos a posição desejada, mas mantemos a reprodução contínua.
-            // No entanto, rodio não suporta diretamente o seek. Aqui estamos simulando
-            // o comportamento aproximado ao ajustar o tempo corrente.
         }
     }
 
@@ -190,6 +181,36 @@ impl eframe::App for MediaPlayerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
         self.update_time();
 
+        egui::SidePanel::left("side_panel").show(ctx, |ui| {
+            ui.heading("Music List");
+            ui.add_space(10.0);
+
+            if !self.songs.is_empty() {
+                let mut selected_index = None;
+
+                ui.vertical(|ui| {
+                    for (index, song) in self.songs.iter().enumerate() {
+                        if ui
+                            .selectable_label(
+                                self.selected_song == Some(index),
+                                song.file_name().unwrap().to_string_lossy(),
+                            )
+                            .clicked()
+                        {
+                            selected_index = Some(index);
+                        }
+                    }
+                });
+
+                if let Some(index) = selected_index {
+                    self.selected_song = Some(index);
+                    self.load_and_play_song(); // Carrega a música selecionada
+                }
+            } else {
+                ui.label("No songs available.");
+            }
+        });
+
         egui::CentralPanel::default().show(ctx, |ui| {
             ui.with_layout(self.layout(), |ui| {
                 ui.add_space(10.0);
@@ -202,7 +223,7 @@ impl eframe::App for MediaPlayerApp {
                 ui.horizontal(|ui| {
                     ui.label("Current Directory:");
                     if ui.button("Select Directory").clicked() {
-                        self.open_directory_dialog();
+                        self.update_directory(); // Atualiza o diretório e lista as músicas
                     }
                 });
 
@@ -211,31 +232,6 @@ impl eframe::App for MediaPlayerApp {
                 });
 
                 ui.add_space(20.0); // Espaço após o campo de diretório
-            });
-
-            ui.with_layout(self.layout(), |ui| {
-                // ComboBox para seleção de música
-                ui.horizontal(|ui| {
-                    egui::ComboBox::from_label("Select a song")
-                        .selected_text(
-                            self.selected_song
-                                .map(|index| {
-                                    self.songs[index].file_name().unwrap().to_string_lossy()
-                                })
-                                .unwrap_or_else(|| "Select a song".into()),
-                        )
-                        .show_ui(ui, |ui| {
-                            for (index, song) in self.songs.iter().enumerate() {
-                                ui.selectable_value(
-                                    &mut self.selected_song,
-                                    Some(index),
-                                    song.file_name().unwrap().to_string_lossy(),
-                                );
-                            }
-                        });
-                });
-
-                ui.add_space(20.0); // Espaço após o ComboBox
             });
 
             ui.with_layout(self.layout(), |ui| {
