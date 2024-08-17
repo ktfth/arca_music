@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")] // hide console window on Windows in release
 #![allow(rustdoc::missing_crate_level_docs)] // it's an example
 
+use dirs::home_dir;
 use eframe::egui::{self, Slider};
 use id3::Tag;
 use id3::TagLike;
@@ -10,9 +11,8 @@ use rodio::{Decoder, OutputStream, Sink};
 use std::fs::{self, File};
 use std::io::BufReader;
 use std::path::PathBuf;
-use std::sync::{Arc, Mutex};
-use dirs::home_dir;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex};
 
 struct MediaPlayerApp {
     song_title: String,
@@ -127,7 +127,8 @@ impl MediaPlayerApp {
                             self.song_title = tag.title().unwrap_or("Unknown Title").to_string();
                             self.artist_name = tag.artist().unwrap_or("Unknown Artist").to_string();
                         } else {
-                            self.song_title = path.file_name().unwrap().to_string_lossy().to_string();
+                            self.song_title =
+                                path.file_name().unwrap().to_string_lossy().to_string();
                             self.artist_name = "Unknown Artist".to_owned();
                         }
 
@@ -141,9 +142,11 @@ impl MediaPlayerApp {
                             }
                         }
 
-                        let source = Decoder::new(BufReader::new(file)).expect("Failed to decode audio");
+                        let source =
+                            Decoder::new(BufReader::new(file)).expect("Failed to decode audio");
 
-                        self.total_time = source.total_duration()
+                        self.total_time = source
+                            .total_duration()
                             .map(|d| d.as_secs_f32())
                             .unwrap_or(0.0); // Obtém a duração real da música
 
@@ -184,7 +187,7 @@ impl MediaPlayerApp {
     fn update_time(&mut self) {
         if let Some(start_time) = self.start_time {
             let elapsed = start_time.elapsed().as_secs_f32();
-            
+
             // Se o áudio é muito curto, normalize a atualização
             let normalized_elapsed = if self.total_time <= 10.0 {
                 // Para áudios com 10 segundos ou menos, normaliza o tempo
@@ -192,7 +195,7 @@ impl MediaPlayerApp {
             } else {
                 elapsed
             };
-            
+
             self.current_time = (self.current_time + normalized_elapsed).min(self.total_time);
             self.start_time = Some(std::time::Instant::now()); // Reinicia o temporizador
         }
@@ -219,10 +222,12 @@ impl MediaPlayerApp {
                     sink.lock().unwrap().stop(); // Para a reprodução atual
 
                     if let Ok(file) = File::open(path) {
-                        let source = Decoder::new(BufReader::new(file)).expect("Failed to decode audio");
+                        let source =
+                            Decoder::new(BufReader::new(file)).expect("Failed to decode audio");
 
                         // Avança a posição no fluxo de áudio
-                        let skipped_source = source.skip_duration(std::time::Duration::from_secs_f32(position));
+                        let skipped_source =
+                            source.skip_duration(std::time::Duration::from_secs_f32(position));
 
                         self.current_time = position.min(self.total_time); // Atualiza o tempo atual
 
@@ -234,10 +239,6 @@ impl MediaPlayerApp {
             }
         }
     }
-
-    fn layout(&mut self) -> egui::Layout {
-        egui::Layout::top_down_justified(egui::Align::Min).with_cross_justify(true)
-    }
 }
 
 impl eframe::App for MediaPlayerApp {
@@ -245,192 +246,166 @@ impl eframe::App for MediaPlayerApp {
         self.update_time();
         self.check_song_finished();
 
-        egui::SidePanel::left("side_panel").show(ctx, |ui| {
-            ui.heading("Music List");
-            ui.add_space(10.0);
+        egui::SidePanel::left("side_panel")
+            .default_width(200.0) // Define a largura padrão do painel para 200 pixels
+            .min_width(150.0) // Define a largura mínima do painel para 150 pixels
+            .show(ctx, |ui| {
+                ui.heading("Music List");
+                ui.add_space(10.0);
 
-            if !self.songs.is_empty() {
-                let mut selected_index = None;
+                if !self.songs.is_empty() {
+                    let mut selected_index = None;
 
-                ui.vertical(|ui| {
-                    for (index, song) in self.songs.iter().enumerate() {
-                        if ui
-                            .selectable_label(
-                                self.selected_song == Some(index),
-                                song.file_name().unwrap().to_string_lossy(),
-                            )
-                            .clicked()
-                        {
-                            selected_index = Some(index);
+                    ui.vertical(|ui| {
+                        for (index, song) in self.songs.iter().enumerate() {
+                            if ui
+                                .selectable_label(
+                                    self.selected_song == Some(index),
+                                    song.file_name().unwrap().to_string_lossy(),
+                                )
+                                .clicked()
+                            {
+                                selected_index = Some(index);
+                            }
                         }
-                    }
-                });
+                    });
 
-                if let Some(index) = selected_index {
-                    self.selected_song = Some(index);
-                    self.load_and_play_song(); // Carrega a música selecionada
+                    if let Some(index) = selected_index {
+                        self.selected_song = Some(index);
+                        self.load_and_play_song(); // Carrega a música selecionada
+                    }
+                } else {
+                    ui.label("No songs available.");
                 }
-            } else {
-                ui.label("No songs available.");
-            }
-        });
+            });
 
         egui::CentralPanel::default().show(ctx, |ui| {
-            egui::Grid::new("main_grid").striped(true).show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    ui.allocate_ui_with_layout(
-                        ui.available_size(),
-                        self.layout(),
+            egui::Grid::new("main_grid")
+                .striped(true)
+                .min_col_width(ui.available_width()) // Para garantir que o grid ocupe a largura total
+                .show(ui, |ui| {
+                    ui.with_layout(
+                        egui::Layout::top_down_justified(egui::Align::Center),
                         |ui| {
                             ui.add_space(10.0);
                             ui.heading("Arca Music");
                             ui.add_space(20.0);
                         },
                     );
-                    ui.add_space(20.0);
-                });
-                ui.end_row();
+                    ui.end_row();
 
-                ui.horizontal(|ui| {
-                    ui.allocate_ui_with_layout(
-                        ui.available_size(),
-                        self.layout(),
-                        |ui| {
-                            // Diretório atual e botão de seleção de diretório
-                            ui.horizontal(|ui| {
-                                ui.label("Current Directory:");
-                                if ui.button("Select Directory").clicked() {
-                                    self.update_directory(); // Atualiza o diretório e lista as músicas
-                                }
+                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                        ui.add_space(10.0);
+                        ui.horizontal(|ui| {
+                            ui.label("Current Directory:");
+                            if ui.button("Select Directory").clicked() {
+                                self.update_directory(); // Atualiza o diretório e lista as músicas
+                            }
+                        });
+                        ui.horizontal(|ui| {
+                            ui.label(&self.current_directory);
+                        });
+                        ui.add_space(5.0); // Espaço após o campo de diretório
+                    });
+                    ui.end_row();
+
+                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                        ui.add_space(20.0);
+                        ui.horizontal(|ui| {
+                            ui.vertical(|ui| {
+                                ui.heading(&self.artist_name);
+                                ui.label(&self.song_title);
                             });
+                        });
+                        ui.add_space(20.0);
+                    });
+                    ui.end_row();
 
-                            ui.horizontal(|ui| {
-                                ui.label(&self.current_directory);
-                            });
+                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                        ui.add_space(15.0); // Espaço antes do controle de progresso
+                        ui.horizontal(|ui| {
+                            ui.label(format!(
+                                "{:02}:{:02}",
+                                self.current_time as i32 / 60,
+                                self.current_time as i32 % 60
+                            ));
+                            if ui
+                                .add(
+                                    Slider::new(&mut self.current_time, 0.0..=self.total_time)
+                                        .show_value(false),
+                                )
+                                .changed()
+                            {
+                                self.seek(self.current_time); // Atualiza o progresso
+                            }
+                            ui.label(format!(
+                                "{:02}:{:02}",
+                                self.total_time as i32 / 60,
+                                self.total_time as i32 % 60
+                            ));
+                        });
+                        ui.add_space(10.0); // Espaço antes dos controles
+                    });
+                    ui.end_row();
 
-                            ui.add_space(20.0); // Espaço após o campo de diretório
-                        },
-                    );
+                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                        ui.add_space(25.0); // Espaço antes dos controles
+                        ui.horizontal(|ui| {
+                            // let button_width = 78.0; // Divide a largura disponível igualmente entre os 4 botões
+                            let button_width = ui.available_width() / 4.0 - 6.0; // Divide a largura disponível igualmente entre os 4 botões
+                            
+                            if ui
+                                .add_sized([button_width, 30.0], egui::Button::new("Back"))
+                                .clicked()
+                            {
+                                self.previous_song(); // Lógica para voltar à música anterior
+                            }
+
+                            if ui
+                                .add_sized([button_width, 30.0], egui::Button::new("Play"))
+                                .clicked()
+                            {
+                                if self.is_playing {
+                                    self.pause(); // Pausa a música se estiver tocando
+                                } else {
+                                    self.play(); // Reproduz a música se estiver pausada
+                                }
+                            }
+
+                            if ui
+                                .add_sized([button_width, 30.0], egui::Button::new("Next"))
+                                .clicked()
+                            {
+                                self.update_progress(0.0);
+                                self.stop(); // Parar a música atual
+                                self.next_song(); // Avançar para a próxima música
+                            }
+
+                            if ui
+                                .add_sized([button_width, 30.0], egui::Button::new("Stop"))
+                                .clicked()
+                            {
+                                self.stop(); // Lógica para parar a música
+                            }
+                        });
+                        ui.add_space(20.0); // Espaço antes do controle de volume
+                    });
+                    ui.end_row();
+
+                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                        ui.horizontal(|ui| {
+                            ui.label("🔈");
+                            if ui
+                                .add(Slider::new(&mut self.volume, 0.0..=1.0).show_value(true))
+                                .changed()
+                            {
+                                self.adjust_volume(); // Ajusta o volume ao alterar o slider
+                            }
+                            ui.label("🔊");
+                        });
+                    });
+                    ui.end_row();
                 });
-                ui.end_row();
-
-                ui.horizontal(|ui| {
-                    ui.allocate_ui_with_layout(
-                        ui.available_size(),
-                        self.layout(),
-                        |ui| {
-                            // Informações da música e barra de progresso
-                            ui.horizontal(|ui| {
-                                ui.vertical(|ui| {
-                                    ui.heading(&self.artist_name);
-                                    ui.label(&self.song_title);
-                                });
-                            });
-
-                            ui.add_space(20.0);
-                        },
-                    );
-                });
-                ui.end_row();
-
-                ui.horizontal(|ui| {
-                    ui.allocate_ui_with_layout(
-                        ui.available_size(),
-                        self.layout(),
-                        |ui| {
-                            // Barra de progresso
-                            ui.horizontal(|ui| {
-                                ui.label(format!(
-                                    "{:02}:{:02}",
-                                    self.current_time as i32 / 60,
-                                    self.current_time as i32 % 60
-                                ));
-                                if ui
-                                    .add(
-                                        Slider::new(&mut self.current_time, 0.0..=self.total_time)
-                                            .show_value(false),
-                                    )
-                                    .changed()
-                                {
-                                    self.seek(self.current_time); // Atualiza o progresso
-                                }
-                                ui.label(format!(
-                                    "{:02}:{:02}",
-                                    self.total_time as i32 / 60,
-                                    self.total_time as i32 % 60
-                                ));
-                            });
-
-                            ui.add_space(20.0); // Espaço antes dos controles
-                        },
-                    );
-                });
-                ui.end_row();
-
-                ui.horizontal(|ui| {
-                    ui.allocate_ui_with_layout(
-                        ui.available_size(),
-                        self.layout(),
-                        |ui| {
-                            // Controles de reprodução
-                            ui.horizontal(|ui| {
-                                if ui.button("Back").clicked() {
-                                    self.update_progress(0.0);
-                                    self.stop(); // Parar a música atual
-                                    self.previous_song(); // Voltar para a música anterior
-                                }
-                                if ui
-                                    .button(if self.start_time.is_some() {
-                                        "Pause"
-                                    } else {
-                                        "Play"
-                                    })
-                                    .clicked()
-                                {
-                                    if self.start_time.is_some() {
-                                        self.pause();
-                                    } else {
-                                        self.load_and_play_song();
-                                    }
-                                }
-
-                                if ui.button("Next").clicked() {
-                                    self.update_progress(0.0);
-                                    self.stop(); // Parar a música atual
-                                    self.next_song(); // Avançar para a próxima música
-                                }
-                                if ui.button("Stop").clicked() {
-                                    self.stop(); // Parar a reprodução
-                                }
-                            });
-
-                            ui.add_space(20.0); // Espaço antes do controle de volume
-                        },
-                    );
-                });
-                ui.end_row();
-
-                ui.horizontal(|ui| {
-                    ui.allocate_ui_with_layout(
-                        ui.available_size(),
-                        self.layout(),
-                        |ui| {
-                            // Controle de volume
-                            ui.horizontal(|ui| {
-                                ui.label("🔈");
-                                if ui
-                                    .add(Slider::new(&mut self.volume, 0.0..=1.0).show_value(true))
-                                    .changed()
-                                {
-                                    self.adjust_volume(); // Ajusta o volume ao alterar o slider
-                                }
-                                ui.label("🔊");
-                            });
-                        },
-                    );
-                });
-                ui.end_row();
-            });
         });
 
         ctx.request_repaint();
