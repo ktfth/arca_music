@@ -247,8 +247,8 @@ impl eframe::App for MediaPlayerApp {
         self.check_song_finished();
 
         egui::SidePanel::left("side_panel")
-            .default_width(200.0) // Define a largura padrão do painel para 200 pixels
-            .min_width(150.0) // Define a largura mínima do painel para 150 pixels
+            .default_width(225.0) // Define a largura padrão do painel para 200 pixels
+            .min_width(175.0) // Define a largura mínima do painel para 150 pixels
             .show(ctx, |ui| {
                 ui.heading("Music List");
                 ui.add_space(10.0);
@@ -321,7 +321,7 @@ impl eframe::App for MediaPlayerApp {
                     });
                     ui.end_row();
 
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min).with_main_justify(true), |ui| {
                         ui.add_space(15.0); // Espaço antes do controle de progresso
                         ui.horizontal(|ui| {
                             ui.label(format!(
@@ -332,7 +332,8 @@ impl eframe::App for MediaPlayerApp {
                             if ui
                                 .add(
                                     Slider::new(&mut self.current_time, 0.0..=self.total_time)
-                                        .show_value(false),
+                                        .show_value(false)
+                                        .trailing_fill(true),
                                 )
                                 .changed()
                             {
