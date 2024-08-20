@@ -2,7 +2,7 @@
 #![allow(rustdoc::missing_crate_level_docs)] // it's an example
 
 use dirs::home_dir;
-use eframe::egui::{self, Slider};
+use eframe::egui::{self, Slider, Layout, Align, Direction};
 use id3::Tag;
 use id3::TagLike;
 use rfd::FileDialog;
@@ -28,6 +28,46 @@ struct MediaPlayerApp {
     current_directory: String, // Campo para armazenar o diretório atual
     is_playing: bool,          // Estado de reprodução
     song_finished: Arc<AtomicBool>, // Indica se a música terminou
+    layout: LayoutSettings,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+#[cfg_attr(feature = "serde", derive(serde::Deserialize, serde::Serialize))]
+#[cfg_attr(feature = "serde", serde(default))]
+struct LayoutSettings {
+    main_dir: Direction,
+    main_wrap: bool,
+    cross_align: Align,
+    cross_justify: bool,
+}
+
+trait LayoutSettingsExt {
+    fn layout(&self) -> egui::Layout;
+}
+
+impl Default for LayoutSettings {
+    fn default() -> Self {
+        Self::top_down_justified()
+    }
+}
+
+impl LayoutSettings {
+    fn top_down_justified() -> Self {
+        Self {
+            main_dir: Direction::TopDown,
+            main_wrap: false,
+            cross_align: Align::Center,
+            cross_justify: true,
+        }
+    }
+}
+
+impl LayoutSettingsExt for LayoutSettings {
+    fn layout(&self) -> egui::Layout {
+        Layout::from_main_dir_and_cross_align(self.main_dir, self.cross_align)
+            .with_main_wrap(self.main_wrap)
+            .with_cross_justify(self.cross_justify)
+    }
 }
 
 impl Default for MediaPlayerApp {
@@ -52,6 +92,7 @@ impl Default for MediaPlayerApp {
             current_directory: initial_directory,
             is_playing: false,
             song_finished: Arc::new(AtomicBool::new(false)),
+            layout: LayoutSettings::default(),
         }
     }
 }
@@ -285,7 +326,7 @@ impl eframe::App for MediaPlayerApp {
                 .min_col_width(ui.available_width()) // Para garantir que o grid ocupe a largura total
                 .show(ui, |ui| {
                     ui.with_layout(
-                        egui::Layout::top_down_justified(egui::Align::Center),
+                        self.layout.layout(),
                         |ui| {
                             ui.add_space(10.0);
                             ui.heading("Arca Music");
@@ -294,7 +335,7 @@ impl eframe::App for MediaPlayerApp {
                     );
                     ui.end_row();
 
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                    ui.with_layout(self.layout.layout(), |ui| {
                         ui.add_space(10.0);
                         ui.horizontal(|ui| {
                             ui.label("Current Directory:");
@@ -309,7 +350,7 @@ impl eframe::App for MediaPlayerApp {
                     });
                     ui.end_row();
 
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                    ui.with_layout(self.layout.layout(), |ui| {
                         ui.add_space(20.0);
                         ui.horizontal(|ui| {
                             ui.vertical(|ui| {
@@ -321,7 +362,7 @@ impl eframe::App for MediaPlayerApp {
                     });
                     ui.end_row();
 
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min).with_main_justify(true), |ui| {
+                    ui.with_layout(self.layout.layout(), |ui| {
                         ui.add_space(15.0); // Espaço antes do controle de progresso
                         ui.horizontal(|ui| {
                             ui.label(format!(
@@ -349,7 +390,7 @@ impl eframe::App for MediaPlayerApp {
                     });
                     ui.end_row();
 
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                    ui.with_layout(self.layout.layout(), |ui| {
                         ui.add_space(25.0); // Espaço antes dos controles
                         ui.horizontal(|ui| {
                             // let button_width = 78.0; // Divide a largura disponível igualmente entre os 4 botões
@@ -393,7 +434,7 @@ impl eframe::App for MediaPlayerApp {
                     });
                     ui.end_row();
 
-                    ui.with_layout(egui::Layout::top_down_justified(egui::Align::Min), |ui| {
+                    ui.with_layout(self.layout.layout(), |ui| {
                         ui.horizontal(|ui| {
                             ui.label("🔈");
                             if ui
